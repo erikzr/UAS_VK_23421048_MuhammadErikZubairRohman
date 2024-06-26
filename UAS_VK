@@ -1,0 +1,98 @@
+import os
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from sklearn.metrics import classification_report, confusion_matrix
+
+# Tentukan path direktori dataset
+train_dir = 'data buah/archive/train/train'
+test_dir = 'data buah/archive/test/test'
+
+# Tentukan dimensi gambar dan jumlah kelas
+img_width, img_height = 150, 150
+num_classes = len(os.listdir(train_dir))
+
+# Menggunakan ImageDataGenerator untuk augmentasi data
+train_datagen = ImageDataGenerator(
+    rescale=1.0/255,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+test_datagen = ImageDataGenerator(rescale=1.0/255)
+
+# Memuat data pelatihan dan pengujian
+train_data = train_datagen.flow_from_directory(
+    train_dir,
+    target_size=(img_width, img_height),
+    batch_size=32,
+    class_mode='categorical'
+)
+
+test_data = test_datagen.flow_from_directory(
+    test_dir,
+    target_size=(img_width, img_height),
+    batch_size=32,
+    class_mode='categorical'
+)
+
+# Membangun arsitektur model CNN
+model = Sequential()
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(img_width, img_height, 3)))
+model.add(MaxPooling2D((2, 2)))
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2)))
+model.add(Conv2D(128, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2)))
+model.add(Conv2D(128, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2)))
+model.add(Flatten())
+model.add(Dense(128, activation='relu'))
+model.add(Dense(num_classes, activation='softmax'))
+
+# Mengompilasi model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Melatih model
+history = model.fit(train_data, epochs=10, validation_data=test_data)
+
+# Mengevaluasi model
+test_loss, test_acc = model.evaluate(test_data, verbose=2)
+print('\nTest accuracy:', test_acc)
+
+# Menampilkan metrik evaluasi tambahan
+test_labels = test_data.classes
+predictions = model.predict(test_data, verbose=2)
+predicted_classes = np.argmax(predictions, axis=1)
+
+print('Classification Report')
+print(classification_report(test_labels, predicted_classes, target_names=test_data.class_indices.keys()))
+
+print('Confusion Matrix')
+print(confusion_matrix(test_labels, predicted_classes))
+
+# Plotting accuracy dan loss
+acc = history.history['accuracy']
+val_acc = history.history['val_accuracy']
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+epochs = range(len(acc))
+
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(epochs, acc, 'b', label='Training accuracy')
+plt.plot(epochs, val_acc, 'r', label='Validation accuracy')
+plt.title('Training and validation accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs, loss, 'b', label='Training loss')
+plt.plot(epochs, val_loss, 'r', label='Validation loss')
+plt.title('Training and validation loss')
+plt.legend()
+
+plt.show()
